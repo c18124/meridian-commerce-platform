@@ -2,3 +2,31 @@
 __pycache__/
 *.pyc
 chat.db
+# 环境配置
+.env.*
+!.env.example
+
+# 本地数据库和向量数据库
+*.db
+*.sqlite
+*.sqlite3
+chroma_data/
+
+# Python 缓存
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+
+# 临时测试文件
+_temp_*.py
+
+# 备份文件
+*.bak
+
+# 日志
+*.log
+
+# 本地性能及手动验证脚本
+benchmark_*.py
+verify_*.py

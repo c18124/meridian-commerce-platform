@@ -1,6 +1,8 @@
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from ai import client, MODEL
+from chroma_service import search_similar_chunks
+from reranker_service import rerank_chunks
 
 # 获取知识库文件夹的路径
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge_base"  # 获取当前文件的父目录
@@ -133,21 +135,54 @@ def retrieve_chunks(question, chunks, vectors, model, top_k=2):  # 检索相关�
     return results
 
 
-def generate_answer(question, retrieved_chunks):  # 生成 AI 的回答
-    # 1. 将检索到的文本块整理成参考资料
+    #讲整理后的文本块等资料 与强约束提示词交给大模型
+def generate_answer(question, retrieved_chunks):
+
+    # 1. 将精排后的文本块整理成参考资料
     context = "\n\n".join(
         chunk for chunk, score in retrieved_chunks
     )
 
-    # 2. 组织发给大模型的消息
+    # 2. 组织发送给 DeepSeek 的消息
     messages = [
         {
             "role": "system",
             "content": (
-                "你是一个基于参考资料回答问题的助手。"
-                "请优先依据提供的参考资料回答。"
-                "如果资料中没有相关信息，请明确说明，"
-                "不要编造资料中不存在的事实。"
+                "你是一个跨境电商演示店铺的知识库客服。"
+
+                "你必须严格依据用户提供的参考资料回答问题。"
+
+                "回答之前，先判断参考资料是否真正包含"
+                "回答用户问题所需要的事实。"
+
+                "注意：语义相关不等于有答案。"
+
+                "如果参考资料没有明确提供相关信息，"
+                "必须如实说明当前资料未说明，"
+                "不能根据常识、经验或猜测编造答案。"
+
+                "如果用户询问具体配送国家，"
+                "但资料没有列出国家名单，"
+                "必须说明资料未提供配送国家信息。"
+
+                "如果用户询问具体运费金额，"
+                "但资料没有提供具体数字，"
+                "必须说明没有具体金额，"
+                "可以告知用户以结账页显示为准。"
+
+                "如果用户询问是否提供加急配送，"
+                "但资料没有说明，"
+                "必须说明资料未说明是否提供，"
+                "不能直接回答提供或不提供。"
+
+                "如果资料只能回答问题的一部分，"
+                "只回答有依据的部分，"
+                "并明确指出缺少的信息。"
+
+                "回答使用中文，表达清晰、简洁。"
+
+                "可以指出参考资料的文件名，"
+                "但不能编造资料来源。"
             )
         },
         {
@@ -165,10 +200,14 @@ def generate_answer(question, retrieved_chunks):  # 生成 AI 的回答
         messages=messages
     )
 
-    # 4. 提取 AI 的回答并返回
+    # 4. 提取回答
     answer = response.choices[0].message.content
 
-    return answer
+    if not isinstance(answer, str) or not answer.strip():
+        return "抱歉，暂时无法生成可靠回答，请稍后重试。"
+
+    return answer.strip()
+
 
 
 # 保存已经初始化的 RAG 数据
@@ -231,46 +270,79 @@ def initialize_rag():
 
 
 
+    #rag回答问题的完整流程函数
 def answer_question(question: str) -> str:
-    # 1. 确保模型和知识库已经准备好
-    initialize_rag()
 
-    # 2. 根据用户问题检索最相关的文本块
-    results = retrieve_chunks(
+    # 1. 从 ChromaDB 召回候选文本块
+    candidates = search_similar_chunks(
         question,
-        _rag_chunks,
-        _rag_vectors,
-        _rag_model,
-        top_k=2
+        top_k=3
     )
 
-    # 2.1 设置最低相似度阈值
-    min_similarity = 0.70
+    # 2. 如果没有检索到资料
+    if not candidates:
+        return "抱歉，当前知识库中没有找到相关资料。"
 
-    # 2.2 如果最高相似度都不够，就不调用大模型
-    if not results or results[0][1] < min_similarity:
-        return "抱歉，当前知识库中没有找到足够相关的资料，暂时无法可靠回答这个问题。"
+    # 3. 使用 Reranker 对候选文本重新排序
+    ranked_results = rerank_chunks(
+        question,
+        candidates
+    )
 
-    # 3. 打印检索结果，检查检索质量
-    print("\n--- RAG 检索结果 ---")
+    # 4. 如果精排结果为空
+    if not ranked_results:
+        return "抱歉，当前没有找到足够的参考资料。"
 
-    for i, (chunk, score) in enumerate(results, start=1):
-        print(f"\n第 {i} 条结果")
-        print(f"相似度：{score:.4f}")
-        print(f"文本内容：\n{chunk}")
+    # 5. 准备最终交给大模型的参考资料
+    retrieved_chunks = []
 
-    # 4. 把检索结果交给大模型生成回答
-    answer = generate_answer(question, results)
+    for result in ranked_results:
 
+        # 5.1 获取文本内容
+        content = result["content"]
+
+        # 5.2 获取文档元数据
+        metadata = result.get("metadata") or {}
+
+        filename = metadata.get(
+            "filename",
+            "未知文件"
+        )
+
+        chunk_index = metadata.get(
+            "chunk_index",
+            "未知"
+        )
+
+        # 5.3 整理资料来源
+        chunk = (
+            f"资料来源：{filename}\n"
+            f"文本块编号：{chunk_index}\n"
+            f"{content}"
+        )
+
+        # 5.4 保存文本和精排分数
+        retrieved_chunks.append(
+            (chunk, result["rerank_score"])
+        )
+
+    # 6. 打印精排结果，方便调试
+    print("\n--- RAG 最终检索结果 ---")
+
+    for rank, (chunk, score) in enumerate(
+        retrieved_chunks,
+        start=1
+    ):
+
+        print(f"\n第 {rank} 条结果")
+        print(f"Reranker 分数：{score:.4f}")
+        print(f"参考资料：\n{chunk}")
+
+    # 7. 将精排后的资料交给 DeepSeek
+    answer = generate_answer(
+        question,
+        retrieved_chunks
+    )
+
+    # 8. 返回最终回答
     return answer
-
-
-
-if __name__ == "__main__":
-    question = "Python 的字典使用什么方式保存数据？"
-
-    answer = answer_question(question)
-
-    print("用户问题：", question)
-    print("\n--- RAG 最终回答 ---")
-    print(answer)

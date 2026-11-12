@@ -1,0 +1,91 @@
+{
+  "dataset_version": 2,
+  "chunk_id_scheme": "ChromaDB真实ID，格式为document_id_chunk_index",
+  "expected_chunk_ids": [
+    "5_0",
+    "6_0",
+    "7_0",
+    "8_0",
+    "8_1"
+  ],
+  "questions": [
+    {
+      "id": "cb01",
+      "question": "因个人原因退货，退货运费由谁承担？",
+      "relevant_chunk_ids": ["5_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb02",
+      "question": "如果商品有质量问题，退货运费谁承担？",
+      "relevant_chunk_ids": ["5_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb03",
+      "question": "顾客签收后多少天内可以申请退货？",
+      "relevant_chunk_ids": ["5_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb04",
+      "question": "订单付款后通常几个工作日内发货？",
+      "relevant_chunk_ids": ["6_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb05",
+      "question": "商品发货后预计多少个工作日送达？",
+      "relevant_chunk_ids": ["6_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb06",
+      "question": "演示店铺的进口关税和其他进口税费由谁承担？",
+      "relevant_chunk_ids": ["7_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb07",
+      "question": "收到额外进口税费缴费通知后应该怎么办？",
+      "relevant_chunk_ids": ["7_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb08",
+      "question": "个人原因换货可以更换哪些内容？",
+      "relevant_chunk_ids": ["8_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb09",
+      "question": "质量问题换货时，寄回和寄出替换商品的运费由谁承担？",
+      "relevant_chunk_ids": ["8_1"],
+      "answerable": true
+    },
+    {
+      "id": "cb10",
+      "question": "如果替换商品缺货，顾客可以怎么处理？",
+      "relevant_chunk_ids": ["8_1", "5_0"],
+      "answerable": true
+    },
+    {
+      "id": "cb11",
+      "question": "演示店铺支持配送到哪些国家？",
+      "relevant_chunk_ids": [],
+      "answerable": false
+    },
+    {
+      "id": "cb12",
+      "question": "标准配送运费的具体金额是多少？",
+      "relevant_chunk_ids": [],
+      "answerable": false
+    },
+    {
+      "id": "cb13",
+      "question": "演示店铺是否提供加急配送服务？",
+      "relevant_chunk_ids": [],
+      "answerable": false
+    }
+  ]
+}

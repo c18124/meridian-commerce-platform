@@ -4,3 +4,8 @@ pydantic
 openai
 sentence-transformers
 python-dotenv
+sqlalchemy>=2.0,<3.0
+pymysql
+redis>=5.0,<7.0
+chromadb==1.5.9
+python-multipart

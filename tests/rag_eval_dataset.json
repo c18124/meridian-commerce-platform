@@ -1,0 +1,67 @@
+{
+  "dataset_version": 1,
+  "chunk_id_scheme": "initialize_rag() 当前生成顺序，编号从 1 开始",
+  "expected_chunk_count": 5,
+  "questions": [
+    {
+      "id": "q01",
+      "question": "项目使用什么数据库保存用户问题和 AI 回答？",
+      "relevant_chunk_ids": [1, 3],
+      "answerable": true
+    },
+    {
+      "id": "q02",
+      "question": "这个项目的后端采用了哪些技术？",
+      "relevant_chunk_ids": [1, 3],
+      "answerable": true
+    },
+    {
+      "id": "q03",
+      "question": "项目通过什么方式调用 DeepSeek API？",
+      "relevant_chunk_ids": [1, 3],
+      "answerable": true
+    },
+    {
+      "id": "q04",
+      "question": "AI Chat Assistant 支持哪些聊天功能？",
+      "relevant_chunk_ids": [2, 4],
+      "answerable": true
+    },
+    {
+      "id": "q05",
+      "question": "这个项目后续计划增加什么 RAG 能力？",
+      "relevant_chunk_ids": [2, 4],
+      "answerable": true
+    },
+    {
+      "id": "q06",
+      "question": "Python 字典使用什么方式保存数据？",
+      "relevant_chunk_ids": [5],
+      "answerable": true
+    },
+    {
+      "id": "q07",
+      "question": "Python 列表可以保存什么？",
+      "relevant_chunk_ids": [5],
+      "answerable": true
+    },
+    {
+      "id": "q08",
+      "question": "Python 函数使用什么关键字定义？",
+      "relevant_chunk_ids": [5],
+      "answerable": true
+    },
+    {
+      "id": "q09",
+      "question": "这个项目的前端使用了哪些技术？",
+      "relevant_chunk_ids": [1],
+      "answerable": true
+    },
+    {
+      "id": "q10",
+      "question": "这个项目的正式上线日期是什么时候？",
+      "relevant_chunk_ids": [],
+      "answerable": false
+    }
+  ]
+}
