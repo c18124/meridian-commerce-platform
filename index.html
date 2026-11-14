@@ -1,168 +1,157 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#04182d">
-    <title>AI Chat Assistant · 深海工作台</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23072543'/%3E%3Cpath d='M11 37c7-8 14-8 21 0s14 8 21 0M11 24c7-8 14-8 21 0s14 8 21 0' fill='none' stroke='%239fe5ff' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <meta name="theme-color" content="#244C47">
+    <meta name="description" content="Global Store demonstration storefront. Product information, stock availability and store policy assistance.">
+    <title>GLOBAL STORE — Customer Care &amp; Shopping Assistance</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23244C47'/%3E%3Cpath d='M17 23h30l3 29H14l3-29Zm8 0v-7a7 7 0 0 1 14 0v7' fill='none' stroke='%23F5F3ED' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <link rel="stylesheet" href="./static/css/style.css">
 </head>
 
 <body>
-    <div class="ocean-background" aria-hidden="true">
-        <div class="video-fallback"></div>
-        <video
-            id="ocean-video"
-            class="ocean-video"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="metadata"
-            poster="./images/background.png"
-        >
-            <source src="./static/videos/ocean.mp4" type="video/mp4">
-        </video>
-        <div class="background-overlay"></div>
-        <div class="background-grain"></div>
-        <div class="ambient-glow ambient-glow-one"></div>
-        <div class="ambient-glow ambient-glow-two"></div>
-    </div>
+    <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+            <symbol id="store-bag" viewBox="0 0 24 24"><path d="M5 7h14l1.5 14h-17L5 7Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></symbol>
+            <symbol id="store-box" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 8v9l9 5 9-5V8M12 13v9M7.5 5.5l9 5"/></symbol>
+            <symbol id="store-stock" viewBox="0 0 24 24"><path d="M4 4h16v5H4zM5 9v12h14V9M9 13h6M12 11v5"/><path d="m9 17 2 2 4-4"/></symbol>
+            <symbol id="store-truck" viewBox="0 0 24 24"><path d="M2 5h12v12H2zM14 9h4l4 5v3h-8M18 9v5h4"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+            <symbol id="store-return" viewBox="0 0 24 24"><path d="M8 4 3 9l5 5M3 9h12a6 6 0 0 1 0 12h-3"/></symbol>
+            <symbol id="store-shield" viewBox="0 0 24 24"><path d="m12 2 8 3v6c0 5-3 8-8 11-5-3-8-6-8-11V5l8-3Z"/><path d="m8 11 3 3 5-5"/></symbol>
+            <symbol id="store-exchange" viewBox="0 0 24 24"><path d="M3 7h17m-4-4 4 4-4 4M21 17H4m4-4-4 4 4 4"/></symbol>
+            <symbol id="store-chat" viewBox="0 0 24 24"><path d="M20 15a3 3 0 0 1-3 3H8l-5 4V6a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3v9Z"/><path d="M7 8h9M7 12h6"/></symbol>
+        </defs>
+    </svg>
 
     <header class="topbar">
-        <div class="brand" aria-label="AI Chat Assistant">
-            <div class="brand-mark" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 14.5c2.6-2.8 5.2-2.8 7.8 0s5.2 2.8 7.8 0c.8-.9 1.6-1.4 2.4-1.7"/>
-                    <path d="M3 9.5c2.6-2.8 5.2-2.8 7.8 0s5.2 2.8 7.8 0c.8-.9 1.6-1.4 2.4-1.7"/>
-                </svg>
+        <div class="topbar-inner">
+            <div class="brand" aria-label="Global Store, International Shopping">
+                <div class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#store-bag"/></svg></div>
+                <div class="brand-copy"><span class="brand-name">GLOBAL STORE</span><span class="brand-note">INTERNATIONAL SHOPPING</span></div>
             </div>
-            <div class="brand-copy">
-                <span class="brand-name">AI CHAT ASSISTANT</span>
-                <span class="brand-note">Ocean Intelligence</span>
-            </div>
-        </div>
-
-        <div class="nav-actions">
-            <div id="workspace-status" class="workspace-status" role="status" aria-live="polite">
-                <span class="status-dot" aria-hidden="true"></span>
-                <span class="status-text">AI 工作台在线</span>
-            </div>
-            <button id="clear" class="icon-button" type="button" aria-label="清空聊天记录">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M4 7h16"/>
-                    <path d="M9 7V4h6v3"/>
-                    <path d="M7 7l1 13h8l1-13"/>
-                    <path d="M10 11v5M14 11v5"/>
-                </svg>
-                <span>清空记录</span>
-            </button>
+            <nav class="store-nav" aria-label="Store sections — display only">
+                <span>PRODUCTS</span><span>SHIPPING</span><span>RETURNS</span><span class="current-section">SUPPORT</span>
+            </nav>
+            <div class="nav-care"><svg class="icon" aria-hidden="true"><use href="#store-chat"/></svg><span>CUSTOMER CARE</span></div>
         </div>
     </header>
 
     <main class="workspace">
         <section class="workspace-intro" aria-labelledby="workspace-title">
             <div class="intro-copy">
-                <p class="eyebrow">Immersive AI Workspace</p>
-                <h1 id="workspace-title">DeepSea <span>AI Workspace</span></h1>
-                <p class="intro-description">在流动海面与安静光影之间，继续你的智能对话、代码探索与知识库问答。</p>
+                <p class="eyebrow">YOUR SHOPPING COMPANION</p>
+                <h1 id="workspace-title">How can we help you <span>today?</span></h1>
+                <p class="intro-subtitle">We're here to make shopping easier.</p>
+                <p class="intro-description">Find product information, check stock availability, or get help with shipping and returns.</p>
             </div>
+            <ul class="intro-meta topic-tags" aria-label="Assistance topics">
+                <li><svg class="icon" aria-hidden="true"><use href="#store-bag"/></svg>PRODUCTS</li>
+                <li><svg class="icon" aria-hidden="true"><use href="#store-stock"/></svg>INVENTORY</li>
+                <li><svg class="icon" aria-hidden="true"><use href="#store-truck"/></svg>SHIPPING</li>
+                <li><svg class="icon" aria-hidden="true"><use href="#store-return"/></svg>RETURNS</li>
+            </ul>
         </section>
 
-        <section class="chat-panel" aria-label="AI 聊天工作台">
-            <header class="panel-header">
-                <div class="assistant-profile">
-                    <div class="assistant-avatar" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 3a7 7 0 0 0-7 7v2a4 4 0 0 0 4 4h1"/>
-                            <path d="M12 3a7 7 0 0 1 7 7v2a4 4 0 0 1-4 4h-1"/>
-                            <path d="M9 20c1.8.9 4.2.9 6 0"/>
-                            <path d="M9 10h.01M15 10h.01"/>
-                        </svg>
+        <div class="support-layout">
+            <section class="chat-panel" aria-labelledby="support-title">
+                <header class="panel-header">
+                    <div class="assistant-profile">
+                        <div class="support-mark" aria-hidden="true"><svg class="icon"><use href="#store-chat"/></svg></div>
+                        <div class="assistant-copy"><h2 id="support-title" class="assistant-name">Store Support</h2><span class="assistant-description">Product &amp; Store Policy Assistance</span></div>
                     </div>
-                    <div class="assistant-copy">
-                        <span class="assistant-name">DeepSea Assistant</span>
-                        <span class="assistant-description">支持实时对话、Markdown 与知识库检索</span>
-                    </div>
-                </div>
-
-                <div id="mode-area">
-                    <label for="chat-mode">对话模式</label>
-                    <div class="select-wrap">
-                        <select id="chat-mode" aria-label="选择聊天模式">
-                            <option value="normal">普通流式聊天</option>
-                            <option value="rag">知识库问答 RAG</option>
-                        </select>
-                    </div>
-                </div>
-            </header>
-
-            <div id="chat" role="log" aria-live="polite" aria-relevant="additions text">
-                <div class="empty-state">
-                    <div class="empty-state-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M4 15.5c2.7-2.6 5.3-2.6 8 0s5.3 2.6 8 0"/>
-                            <path d="M4 10.5c2.7-2.6 5.3-2.6 8 0s5.3 2.6 8 0"/>
-                            <path d="M9 5.5c1.8-1.3 3.8-1.3 6 0"/>
-                        </svg>
-                    </div>
-                    <h2>开始一段新的探索</h2>
-                    <p>输入问题与 AI 对话，或切换到 RAG 模式，从本地知识库中寻找更贴合项目内容的答案。</p>
-                </div>
-            </div>
-
-            <footer class="composer">
-                <div id="input-area">
-                    <label class="sr-only" for="question">输入消息</label>
-                    <input
-                        id="question"
-                        type="text"
-                        maxlength="4000"
-                        autocomplete="off"
-                        placeholder="向 DeepSea Assistant 发送消息…"
-                    >
-                    <button id="send" type="button">
-                        <span class="button-label">发送</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M21 3 10 14"/>
-                            <path d="m21 3-7 18-4-7-7-4 18-7Z"/>
-                        </svg>
+                    <button id="clear" class="icon-button" type="button" aria-label="Clear conversation">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
+                        <span>Clear conversation</span>
                     </button>
+                </header>
+
+                <div id="chat" role="log" aria-live="polite" aria-relevant="additions text">
+                    <div class="empty-state">
+                        <div class="empty-state-icon" aria-hidden="true"><svg class="icon"><use href="#store-bag"/></svg></div>
+                        <span class="empty-brand">GLOBAL STORE</span>
+                        <h2>Welcome to Global Store</h2>
+                        <p>We're happy to help with your shopping experience.</p>
+                        <div class="help-topics">
+                            <h3>What can we help you with?</h3>
+                            <ul>
+                                <li><svg class="icon" aria-hidden="true"><use href="#store-box"/></svg><span>Product details</span></li>
+                                <li><svg class="icon" aria-hidden="true"><use href="#store-stock"/></svg><span>Stock availability</span></li>
+                                <li><svg class="icon" aria-hidden="true"><use href="#store-truck"/></svg><span>Shipping information</span></li>
+                                <li><svg class="icon" aria-hidden="true"><use href="#store-return"/></svg><span>Returns &amp; exchanges</span></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-                <div class="composer-meta" aria-hidden="true">
-                    <span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M8 9h.01M12 9h.01M16 9h.01M8 13h8"/></svg>
-                        Enter 发送
-                    </span>
-                    <span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
-                        对话历史保存至本地数据库
-                    </span>
-                </div>
-            </footer>
-        </section>
+
+                <footer class="composer">
+                    <div id="input-area">
+                        <label class="sr-only" for="question">Ask Store Support a question</label>
+                        <input id="question" type="text" maxlength="4000" autocomplete="off" placeholder="Ask about products, stock, shipping or returns...">
+                        <button id="send" type="button">
+                            <span class="button-label">发送</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 3 10 14m11-11-7 18-4-7-7-4 18-7Z"/></svg>
+                        </button>
+                    </div>
+                    <div class="composer-meta">
+                        <span>Press <kbd>Enter</kbd> to send</span>
+                        <div id="workspace-status" class="workspace-status" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text">AI 工作台在线</span></div>
+                    </div>
+                </footer>
+            </section>
+
+            <aside class="store-sidebar" aria-label="Store information and assistance">
+                <section class="info-card policy-card" aria-labelledby="store-info-title">
+                    <div class="card-heading"><span class="card-kicker">A LITTLE GOOD TO KNOW</span><h2 id="store-info-title">Store Information</h2><p>Shopping with confidence.</p></div>
+                    <dl class="policy-list">
+                        <div class="policy-row"><span class="policy-icon" aria-hidden="true"><svg class="icon"><use href="#store-return"/></svg></span><div><dt>Returns</dt><dd><strong>14-day</strong> return window after delivery.</dd></div></div>
+                        <div class="policy-row"><span class="policy-icon" aria-hidden="true"><svg class="icon"><use href="#store-truck"/></svg></span><div><dt>Shipping</dt><dd>Usually dispatch within <strong>2 business days.</strong><br>Delivery in <strong>7–15 business days</strong> after dispatch. Customs delays may affect arrival.</dd></div></div>
+                        <div class="policy-row"><span class="policy-icon" aria-hidden="true"><svg class="icon"><use href="#store-shield"/></svg></span><div><dt>Customs &amp; Duties</dt><dd>Import duties covered by the store and included at checkout.</dd></div></div>
+                        <div class="policy-row"><span class="policy-icon" aria-hidden="true"><svg class="icon"><use href="#store-exchange"/></svg></span><div><dt>Exchanges</dt><dd>Same-item size or color exchanges. For change-of-mind exchanges, customers cover shipping both ways.</dd></div></div>
+                    </dl>
+                    <p class="policy-note">Demo store policies · A quick reference from our demonstration knowledge base.</p>
+                </section>
+
+                <section class="info-card assistance-card" aria-labelledby="product-help-title">
+                    <span class="card-kicker">PRODUCT &amp; INVENTORY ASSISTANCE</span>
+                    <h2 id="product-help-title">Need help finding<br>the right product?</h2>
+                    <p>Ask about product details, available options, pricing and SKU inventory.</p>
+                    <svg class="assistance-icon icon" aria-hidden="true"><use href="#store-bag"/></svg>
+                </section>
+
+                <section class="info-card care-card" aria-labelledby="care-title">
+                    <span class="card-kicker">CUSTOMER CARE</span><h2 id="care-title">We're here to help.</h2>
+                    <p>From product discovery to after-sales support, get the information you need throughout your shopping journey.</p>
+                </section>
+            </aside>
+        </div>
     </main>
+
+    <footer class="brand-footer">
+        <div class="brand-footer-inner">
+            <div class="footer-brand"><span>GLOBAL STORE</span><p>Making international shopping simpler.</p></div>
+            <div class="footer-disclosure"><div class="footer-badges"><span>DEMO STOREFRONT</span><span>CUSTOMER CARE EXPERIENCE</span></div><p>Demonstration store and data. Not a live retail service.</p></div>
+        </div>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <script src="./static/js/animation.js"></script>
+    <script src="./static/js/runtime-config.js"></script>
 
     <script>
         "use strict";
 
-        const API_BASE = "http://127.0.0.1:8000";
+        const API_BASE = window.GLOBAL_STORE_API_BASE ?? "http://127.0.0.1:8001";
         const USER_ID = "001";
 
         const chat = document.getElementById("chat");
         const questionInput = document.getElementById("question");
         const sendButton = document.getElementById("send");
         const clearButton = document.getElementById("clear");
-        const chatMode = document.getElementById("chat-mode");
         const statusElement = document.getElementById("workspace-status");
         const statusText = statusElement.querySelector(".status-text");
 
@@ -180,7 +169,6 @@
             sendButton.disabled = isBusy;
             questionInput.disabled = isBusy;
             clearButton.disabled = isBusy;
-            chatMode.disabled = isBusy;
             sendButton.querySelector(".button-label").textContent = isBusy ? "生成中" : "发送";
             setStatus(isBusy ? "AI 正在生成回答" : "AI 工作台在线", isBusy);
         }
@@ -200,15 +188,19 @@
         function showEmptyState() {
             chat.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M4 15.5c2.7-2.6 5.3-2.6 8 0s5.3 2.6 8 0"/>
-                            <path d="M4 10.5c2.7-2.6 5.3-2.6 8 0s5.3 2.6 8 0"/>
-                            <path d="M9 5.5c1.8-1.3 3.8-1.3 6 0"/>
-                        </svg>
+                    <div class="empty-state-icon" aria-hidden="true"><svg class="icon"><use href="#store-bag"/></svg></div>
+                    <span class="empty-brand">GLOBAL STORE</span>
+                    <h2>Welcome to Global Store</h2>
+                    <p>We're happy to help with your shopping experience.</p>
+                    <div class="help-topics">
+                        <h3>What can we help you with?</h3>
+                        <ul>
+                            <li><svg class="icon" aria-hidden="true"><use href="#store-box"/></svg><span>Product details</span></li>
+                            <li><svg class="icon" aria-hidden="true"><use href="#store-stock"/></svg><span>Stock availability</span></li>
+                            <li><svg class="icon" aria-hidden="true"><use href="#store-truck"/></svg><span>Shipping information</span></li>
+                            <li><svg class="icon" aria-hidden="true"><use href="#store-return"/></svg><span>Returns &amp; exchanges</span></li>
+                        </ul>
                     </div>
-                    <h2>开始一段新的探索</h2>
-                    <p>输入问题与 AI 对话，或切换到 RAG 模式，从本地知识库中寻找更贴合项目内容的答案。</p>
                 </div>
             `;
         }
@@ -337,8 +329,7 @@
                 return;
             }
 
-            const useRag = chatMode.value === "rag";
-            const endpoint = useRag ? `${API_BASE}/rag/chat` : `${API_BASE}/chat/stream`;
+            const endpoint = `${API_BASE}/agent/chat/stream`;
             const requestData = {
                 user_id: USER_ID,
                 question
@@ -367,45 +358,33 @@
 
                 loading.contentElement.classList.remove("loading-copy");
 
-                if (useRag) {
-                    const result = await response.json();
-                    answer = result.answer || "";
+                if (!response.body) {
+                    throw new Error("Streaming response body is unavailable");
+                }
 
-                    if (!answer) {
-                        throw new Error("RAG response is empty");
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        answer += decoder.decode();
+                        break;
                     }
 
+                    const text = decoder.decode(value, { stream: true });
+                    if (!text) {
+                        continue;
+                    }
+
+                    answer += text;
                     renderMarkdown(loading.contentElement, answer);
                     scrollChatToBottom();
-                } else {
-                    if (!response.body) {
-                        throw new Error("Streaming response body is unavailable");
-                    }
+                }
 
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder("utf-8");
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-
-                        if (done) {
-                            answer += decoder.decode();
-                            break;
-                        }
-
-                        const text = decoder.decode(value, { stream: true });
-                        if (!text) {
-                            continue;
-                        }
-
-                        answer += text;
-                        renderMarkdown(loading.contentElement, answer);
-                        scrollChatToBottom();
-                    }
-
-                    if (!answer) {
-                        throw new Error("Streaming response is empty");
-                    }
+                if (!answer) {
+                    throw new Error("Streaming response is empty");
                 }
 
                 loading.timeElement.textContent = getCurrentTime();

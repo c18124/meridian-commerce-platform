@@ -1,445 +1,282 @@
-# AI Chat Assistant
+# MERIDIAN — Commerce Intelligence Platform
 
-AI Chat Assistant 是一个基于 FastAPI、DeepSeek API、SQLite 和 RAG 技术实现的全栈 AI 聊天助手。项目支持普通 AI 对话、流式输出、本地聊天历史、知识库检索问答、Markdown 渲染和代码语法高亮。
+**Meridian 跨境电商智能服务平台**
 
-前端目前升级为沉浸式海洋主题 AI 工作台，使用本地 HTML5 海洋视频作为动态背景，并结合深蓝渐变遮罩、毛玻璃聊天卡片、响应式布局和 GSAP 动画，在保留原有聊天功能的基础上改善桌面端和移动端体验。
+*Smarter Commerce. Better Experiences.*
 
-本项目从前后端交互、数据库持久化、LLM API 调用到 RAG 检索问答均已实现，并使用 pytest 完成自动化测试，同时支持通过 Docker 容器化部署。
+MERIDIAN 是面向跨境电商场景的 AI 智能服务平台：将商品和 SKU 的实时业务查询、店铺政策知识检索与普通自然语言问答，统一接入一个可流式交互的 Agent 入口。
 
-## 项目功能
+项目使用 Python / FastAPI、DeepSeek、MySQL、Redis 与 Chroma，实现了从意图识别、工具执行、知识检索到回答生成、聊天历史保存和 Docker 部署的完整链路。
 
-- **AI 普通对话**：调用 DeepSeek API 生成 AI 回答，支持结合历史消息进行多轮对话。
-- **流式输出**：通过后端流式接口逐步返回 AI 生成的内容。
-- **聊天历史管理**：保存、查询和清空指定用户的聊天记录。
-- **多用户记录隔离**：根据 user_id 区分不同用户的聊天记录。
-- **Markdown 渲染与安全清理**：使用 marked 转换 Markdown、DOMPurify 清理生成的 HTML，并通过 highlight.js 实现代码语法高亮。
-- **全屏本地海洋视频背景**：使用 HTML5 Video 静音、循环播放本地视频，按比例铺满视口；视频加载失败或无法自动播放时显示备用图片与渐变背景。
-- **沉浸式海洋工作台**：深蓝渐变遮罩搭配毛玻璃导航栏和聊天卡片，区分用户与 AI 消息气泡，并保留时间戳、加载状态和错误提示。
-- **页面和消息入场动画**：通过 GSAP 实现页面、消息和清空后空状态的过渡，结合 CSS Keyframes 展示状态灯和加载动画；GSAP 不可用时跳过相关动画。
-- **减少动态效果支持**：尊重 `prefers-reduced-motion` 设置，跳过 GSAP 动画并缩短 CSS 动画与过渡时间。
-- **响应式布局**：通过 CSS Grid、Flexbox 和媒体查询适配 1920×1080 桌面视口与手机竖屏，聊天区独立滚动，代码块支持横向滚动。
-- **请求状态管理**：请求期间禁用输入框、发送按钮、清空按钮和模式选择，防止重复发送；请求成功或失败后，通过 `finally` 恢复控件并重新聚焦输入框。
-- **RAG 知识库问答**：检索本地知识库中的相关资料，并结合检索结果生成回答。
-- **文本分块与向量检索**：将知识文档切分为文本块，通过文本向量和相似度计算检索相关内容。
-- **接口参数校验**：使用 Pydantic 校验请求参数，并处理异常请求。
-- **自动化测试**：使用 pytest、FastAPI TestClient、HTTPX 和 monkeypatch 测试 API 与数据库逻辑。
-- **Docker 部署**：使用 Dockerfile 和 Docker Compose 构建、启动和管理应用容器。
+**MERIDIAN 是软件系统的正式产品名称；GLOBAL STORE 是系统内的演示店铺。** 当前前端保留 GLOBAL STORE 品牌，展示商品咨询、库存查询及售后政策咨询场景，不代表实际运营中的商城。
+
+[系统架构与三张流程图](docs/architecture.md) · [Docker 部署与数据维护](docs/deployment.md)
+
+正式仓库：[c18124/meridian-commerce-platform](https://github.com/c18124/meridian-commerce-platform)。
+
+## 项目解决的问题
+
+- 商品和库存信息需要来自真实业务数据库，不能让模型根据历史回答猜测。
+- 退货、配送、清关等政策需要依据知识库原文回答，资料不足时应明确说明。
+- 用户不应手动判断问题属于 Chat 还是 RAG；系统应自动选择能力。
+- 生成过程需要持续返回内容，同时保留 Markdown 展示、异常处理和聊天历史。
+- 部署需要明确区分数据库、缓存与向量索引，支持独立持久化及迁移校验。
+
+## 核心功能
+
+### 智能客服与 Agent
+
+- 统一入口：`POST /agent/chat/stream`，由后端识别 `chat` / `rag`。
+- 第一级由 Intent Router 结合最近历史判断问题意图；低置信度、非法结果或异常回退为 `chat`。
+- 第二级仅位于 Chat 分支：DeepSeek 通过 Function Calling 决定直接回答，或调用商品工具后继续生成回答。
+- 三个工具均为只读工具，通过白名单调度，校验工具名称与参数，并限制调用轮次和次数。
+
+| 工具 | 参数 | 实际能力 |
+|---|---|---|
+| `list_products` | `page=1`、`page_size=20` | 分页读取商品列表 |
+| `get_product_detail` | `product_id` | 读取商品详情及关联 SKU、价格、规格 |
+| `get_sku_inventory` | `sku_code` | 读取该 SKU 的当前库存 |
+
+商品工具直接查询 MySQL，不复用模型先前回答中的库存，也不经过商品 HTTP 接口的 Redis 结果缓存。商品和 SKU 的创建、修改、删除属于独立业务 API，不对大模型开放写入工具。
+
+### RAG 与文档入库
+
+- 通过 `POST /documents/upload` 上传 UTF-8 TXT，支持 BOM，单文件不超过 1 MiB。
+- SHA-256 内容指纹、文件名检查、Redis Bitmap 布隆预检查与 MySQL 唯一约束共同处理重复文档；布隆判断不替代数据库精确查询。
+- MySQL 保存原文后，进行换行规范化及文本切分，默认 `chunk_size=200`、`overlap=30`，再生成向量并写入 Chroma。
+- Embedding：`BAAI/bge-small-zh-v1.5`，512 维；Reranker：`BAAI/bge-reranker-base` CrossEncoder。
+- 当前检索链路：**Chroma 最多召回 5 块 → 全部候选重排 → 选择最多 3 块作为上下文 → DeepSeek 回答**。
+- 在排序基础上对明确政策主题、综合架构问题做主题匹配与事实覆盖选择；不改变模型原始重排分数，没有固定相关性分数过滤阈值。
+- 文档入库失败存在补偿清理逻辑；MySQL、Redis、Chroma 并非一个分布式事务，异常后仍需核对状态。
+
+知识库目录中的 TXT **不会随服务启动自动全部入库**。演示政策可通过现有脚本或上传接口显式导入，项目介绍需显式上传。仅修改本地 TXT 不会更新已有数据库原文或向量索引。
+
+### 数据、缓存与交互
+
+- MySQL / SQLAlchemy ORM：保存商品、SKU、文档原文和聊天历史，包含唯一约束及价格、库存非负约束。
+- Redis：商品列表/详情缓存、商品缓存版本失效、随机 TTL、文档布隆过滤器，以及旧聊天流式路径中的缓存互斥锁、令牌校验释放和自动续期。
+- 兼容接口 `/chat`、`/chat/stream` 保留上下文/问题缓存模式；**统一 Agent 的 Chat 分支当前不启用普通聊天答案缓存**。分布式锁也不是请求限流或库存扣减机制。
+- 聊天使用 HTTP `text/plain` 流，前端以 `fetch`、`ReadableStream.getReader()` 和 `TextDecoder` 拼接；不是 SSE。
+- 按 `user_id` 保存、读取和清空历史。RAG 完整生成成功后事务保存问答对；Chat 分支先保存用户问题，再在完成后保存最终回答。
+- GLOBAL STORE 前端支持响应式布局、Loading、Enter 发送、控件禁用/恢复、自动滚动、Toast、Markdown 表格与代码高亮。
+- Markdown 经 Marked 解析后由 DOMPurify 清理，再使用 highlight.js 高亮；GSAP 提供轻量动画。
 
 ## 技术栈
 
-### 后端
+| 类别 | 实际使用 |
+|---|---|
+| 后端 | Python、FastAPI、Pydantic、Uvicorn、SQLAlchemy 2.x、PyMySQL |
+| AI | DeepSeek `deepseek-chat`、OpenAI 兼容 Python SDK、手写 Agent 路由与 Function Calling、RAG |
+| 向量检索 | ChromaDB 1.5.9 PersistentClient、cosine / HNSW、Sentence Transformers、BGE Embedding、BGE Reranker |
+| 数据库与缓存 | MySQL 8.0、Redis 7.4、SQLAlchemy ORM、Redis Bitmap、布隆过滤器、分布式锁 |
+| 前端 | HTML、CSS、原生 JavaScript、Fetch / Streams API、Marked、DOMPurify、highlight.js、GSAP |
+| 部署 | Docker、Docker Compose、Nginx |
+| 测试 | pytest、FastAPI TestClient、HTTPX、monkeypatch、临时 SQLite / Chroma 和独立 Redis |
 
-- Python
-- FastAPI
-- Pydantic
-- Uvicorn
-- OpenAI Python SDK（兼容 DeepSeek API）
-- StreamingResponse（流式 HTTP 响应）
+运行依赖见 [requirements.txt](requirements.txt)，当前容器核心版本约束见 [deployment/constraints-py312.txt](deployment/constraints-py312.txt)。pytest 是测试依赖，未写入生产依赖文件；仓库没有 `requirements-dev.txt`。SQLite 用于隔离测试及历史文件兼容说明，当前业务数据库是 **MySQL**。
 
-### AI 与 RAG
+## 系统架构
 
-- DeepSeek API
-- Sentence Transformers
-- BAAI/bge-small-zh-v1.5
-- 文本分块（Text Chunking）
-- 文本向量化（Embedding）
-- 向量相似度检索
-- 基于检索结果的增强生成（RAG）
+部署时，浏览器通过 Nginx 获取静态页面，并同源请求 FastAPI。Agent Service 从 MySQL 读取历史，调用 Intent Router，再选择 Chat 或 RAG：
 
-### 数据存储
+1. **Chat**：DeepSeek 决定是否调用商品工具；工具读取 MySQL，将结构化结果返回模型，模型组织最终回答。
+2. **RAG**：问题向量化后从 Chroma 召回候选，Reranker 重排，上下文选择器保留最多三块，DeepSeek 依据资料生成回答。
+3. 两条路径均使用普通文本流返回；各分支按自身完成条件保存历史。
+4. MySQL 是业务事实和文档原文来源；Redis 承担特定路径的缓存、互斥与去重预检查；Chroma 保存检索用文本块、metadata 和向量。
 
-- SQLite（本地聊天历史持久化）
-- 参数化 SQL 与事务管理
+Chroma 位于 app 容器内，通过 `PersistentClient` 访问持久化卷，**不是额外部署的 Chroma 服务容器**。完整调用关系和保存时序见 [架构文档](docs/architecture.md)。
 
-### 前端
+## 项目目录
 
-- HTML5（页面结构与语义标签）
-- CSS3
-- CSS Grid / Flexbox（工作台与组件布局）
-- CSS Variables（主题颜色与布局变量）
-- Media Queries（桌面、手机及减少动态效果适配）
-- backdrop-filter（导航栏与聊天卡片的毛玻璃效果）
-- CSS Keyframes（状态灯、加载点及提示动画）
-- 原生 JavaScript
-- DOM API（消息创建、渲染与交互状态更新）
-- Fetch API（请求后端接口）
-- Streams API（通过 `response.body.getReader()` 逐块读取流式响应）
-- TextDecoder（UTF-8 流式文本解码）
-- HTML5 Video（本地海洋视频背景）
-
-### 前端第三方库
-
-- marked：Markdown 转换。
-- DOMPurify：HTML 安全清理，降低 XSS 风险。
-- highlight.js 11.9.0：代码语法高亮。
-- GSAP 3.12.5：页面、消息与空状态动画。
-
-### 开发与测试
-
-- pytest
-- FastAPI TestClient
-- HTTPX
-- pytest fixture
-- monkeypatch
-- 临时 SQLite 测试数据库
-- Git / GitHub
-- Docker
-- Docker Compose
-
-## 项目结构
+下列为当前仓库的核心文件，省略缓存、私有环境文件、运行数据及历史备份：
 
 ```text
-AI-Chat-Assistant/
-├── images/
-│   └── background.png
+.
+├── api.py                       # FastAPI 路由与请求模型
+├── agent_service.py             # 第一级分类后的分支调度
+├── intent_router.py             # chat/rag 分类、历史裁剪与回退
+├── agent_tool_service.py        # Chat 分支 Function Calling 循环
+├── agent_tools.py               # 三个只读工具及白名单
+├── ai.py                        # DeepSeek 客户端、历史构建及兼容聊天缓存
+├── rag.py                       # 切分、检索、上下文选择与生成
+├── document_service.py          # 文档去重、入库、更新/删除服务及补偿
+├── embedding_service.py         # Embedding 延迟加载与编码
+├── reranker_service.py          # CrossEncoder 延迟加载与重排
+├── chroma_client.py             # PersistentClient 与 rag_chunks
+├── chroma_service.py            # 文本块向量写入、查询、删除
+├── database.py                  # ORM 模型、会话及持久化函数
+├── product_service.py           # 商品/SKU 业务操作
+├── product_cache.py             # 商品缓存与版本失效
+├── redis_client.py              # Redis 客户端与随机 TTL
+├── redis_lock.py                # 分布式锁、释放与续期
+├── redis_bloom_filter.py        # Redis Bitmap 布隆实现
+├── bloom_filter.py              # 位数组参数与哈希位置计算
+├── config.py                    # 环境变量与模型配置
+├── seed_demo_policies.py         # 显式导入四份演示政策
+├── index.html                   # GLOBAL STORE 页面及聊天交互
+├── static/
+│   ├── css/style.css            # 当前店铺视觉与响应式样式
+│   ├── js/animation.js          # 轻量动画
+│   ├── js/runtime-config.js     # 本地 API 回退；部署时由 Nginx 覆盖
+│   └── videos/                  # 保留的旧素材，当前页面不使用视频背景
 ├── knowledge_base/
 │   ├── project_intro.txt
-│   └── python_notes.txt
-├── tests/
-│   ├── test_api.py
-│   └── test_database.py
-├── static/
-│   ├── css/style.css
-│   ├── js/animation.js
-│   └── videos/
-│       ├── ocean.mp4
-│       └── SOURCE.md
-├── .dockerignore
-├── .gitignore
-├── .env
-├── ai.py
-├── api.py
-├── config.py
-├── database.py
+│   ├── python_notes.txt
+│   └── policies/               # 退货、配送、清关、换货四份 TXT
+├── tests/                      # API、Agent、商品、缓存、RAG 等测试
+├── deployment/
+│   ├── Dockerfile.nginx
+│   ├── nginx.conf
+│   ├── constraints-py312.txt
+│   ├── .env.example
+│   ├── data_transfer.py         # 向全新目标导入与迁移校验
+│   ├── manage.ps1              # 指定 Compose 项目的管理入口
+│   └── README.md               # 原部署辅助说明，保留不改
+├── docs/
+│   ├── architecture.md
+│   └── deployment.md
 ├── Dockerfile
 ├── docker-compose.yml
-├── index.html
-├── main.py
-├── rag.py
-├── requirements.txt
-├── requirements-dev.txt
-└── README.md
+└── requirements.txt
 ```
 
-> 以上目录为项目主要文件示意，实际文件以仓库内容为准。`.env`、`chat.db` 等本地文件不应提交到公开仓库。
+`document_service.py` 中存在文档更新、删除服务函数，但当前 FastAPI **只公开文档上传接口**；目录中的函数不能等同于已提供相应 HTTP API。
 
-## 核心文件说明
+## 本地开发运行
 
-| 文件 | 作用 |
-|---|---|
-| `api.py` | FastAPI 应用入口、HTTP 接口、参数校验及异常处理 |
-| `ai.py` | 大模型 API 调用、普通聊天及流式响应逻辑 |
-| `database.py` | SQLite 连接管理、聊天记录增删查及事务处理 |
-| `rag.py` | 知识库加载、文本分块、向量化、相似度检索及问答 |
-| `config.py` | 加载模型及 API 相关配置 |
-| `index.html` | 前端聊天界面、交互逻辑及消息展示 |
-| `static/css/style.css` | 海洋主题、毛玻璃聊天工作台及响应式样式 |
-| `static/js/animation.js` | GSAP 入场、消息和清空动画，以及视频加载状态处理 |
-| `static/videos/SOURCE.md` | 海洋视频素材来源、许可证与文件校验信息 |
-| `tests/test_api.py` | API 接口自动化测试 |
-| `tests/test_database.py` | 数据库操作自动化测试 |
-| `requirements.txt` | 应用运行依赖 |
-| `requirements-dev.txt` | 开发及测试依赖 |
-| `Dockerfile` | 定义应用镜像构建步骤 |
-| `docker-compose.yml` | 定义容器服务、端口和相关运行配置 |
+已验证环境：本地 Python 3.13.12，Docker Python 3.12.16。建议选择 Python 3.12 或已验证的 3.13 环境，并优先使用容器复现验收版本。以下命令在仓库根目录执行。
 
-## 视频素材说明
-
-- 视频文件：`static/videos/ocean.mp4`。
-- 素材来源：Pexels，作品 *Waves in Sea at Sunset*，作者 dabatepatvideos。
-- 来源、Pexels License 许可证链接和文件校验信息见 [static/videos/SOURCE.md](static/videos/SOURCE.md)。
-- 根据素材记录中的本地媒体实测信息，当前视频为 **1280×720、30fps、约 8.77 秒**。下载链接中的文件名包含 `1920_1080`，但本地文件规格以上述实测记录为准。
-- **1920×1080 是桌面布局检查的视口尺寸**；视频通过 `object-fit: cover` 按比例铺满背景，必要时裁切边缘。
-- 视频未就绪或加载失败时，使用 `images/background.png` 与 CSS 渐变作为备用背景。
-
-## 环境准备
-
-本地开发环境：
-
-- Python 3.13（已使用的本地开发与测试环境）
-- pip
-- DeepSeek API Key
-
-容器部署环境：
-
-- Docker Desktop
-- Docker Compose
-
-## 本地运行
-
-### 1. 克隆项目
-
-```bash
-git clone https://github.com/c18124/AI-Chat-Assistant.git
-cd AI-Chat-Assistant
-```
-
-### 2. 创建虚拟环境
-
-```bash
-python -m venv .venv
-```
-
-Windows PowerShell 激活环境：
+### 安装依赖
 
 ```powershell
+python --version
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+
+python -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements.txt -c deployment/constraints-py312.txt "PyMySQL[rsa]==1.2.3"
+python -m pip install pytest==9.1.1 httpx
 ```
 
-### 3. 安装依赖
+### 配置本地环境
 
-```bash
-python -m pip install -r requirements.txt
+先准备可连接的 MySQL 及 Redis，并在 MySQL 创建空的 `ai_chat` 数据库及相应用户。当前应用不会自动创建数据库或 ORM 表，也不会自动迁移结构、灌入演示数据。
+
+在根目录创建仅供本地使用、不可提交的 `.env`，示例均为占位值：
+
+```dotenv
+DEEPSEEK_API_KEY=replace_with_your_key
+DATABASE_URL=mysql+pymysql://your_user:your_url_encoded_password@127.0.0.1:3306/ai_chat
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
 ```
 
-安装开发和测试依赖：
+模型名称和 DeepSeek Base URL 目前在源码配置中固定；不要把它们误写为已有的可配置环境变量。首次 RAG 使用需要下载模型或已有 Hugging Face 缓存。
 
-```bash
-python -m pip install -r requirements-dev.txt
+仅在新建的数据库上执行一次显式建表；已有迁移数据不要重复初始化，也不能用它替代结构升级方案：
+
+```powershell
+python -c "from database import Base, engine; Base.metadata.create_all(engine)"
 ```
 
-如果测试依赖没有包含在开发依赖文件中，可单独安装：
+### 启动本地后端与前端
 
-```bash
-python -m pip install pytest httpx
+后端：
+
+```powershell
+python -m uvicorn api:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-### 4. 配置环境变量
+另开终端，在仓库根目录提供静态页面：
 
-在项目根目录创建 `.env` 文件，根据 `config.py` 实际读取的变量名称填写 API 配置。
-
-示例：
-
-```env
-DEEPSEEK_API_KEY=your_deepseek_api_key
-```
-
-请将示例值替换为自己的密钥，并确认模型名称、API Base URL 等配置与 `config.py` 的实际实现一致。
-
-**安全注意：不要将真实 API Key 提交到 GitHub。**
-
-### 5. 启动后端
-
-在项目根目录执行：
-
-```bash
-uvicorn api:app --reload
-```
-
-启动成功后访问：
-
-- API 文档：http://127.0.0.1:8000/docs
-- OpenAPI Schema：http://127.0.0.1:8000/openapi.json
-
-### 6. 打开前端
-
-建议在项目根目录另开一个终端并启动静态服务器：
-
-```bash
+```powershell
 python -m http.server 5500 --bind 127.0.0.1
 ```
 
-然后访问 http://127.0.0.1:5500/ 。也可以直接打开 `index.html`，但使用本地静态服务器更接近实际部署环境，并能稳定加载本地视频资源。
+- 本地前端：http://127.0.0.1:5500/
+- 本地 API 文档：http://127.0.0.1:8001/docs
+- Docker 前端及同源 API：http://127.0.0.1:8080/
+- Docker API 文档：http://127.0.0.1:8080/docs
+
+本地静态页面使用 `8001` 回退；部署页面由 Nginx 注入同源配置。不要把容器内 `app:8000` 写成浏览器访问地址。Docker 首次启动、数据初始化和现有迁移环境的操作见 [部署文档](docs/deployment.md)。
 
 ## API 接口
 
-| 方法 | 路径 | 功能 |
-|---|---|---|
-| POST | `/chat` | 普通 AI 聊天 |
-| POST | `/chat/stream` | 流式 AI 聊天 |
-| GET | `/history/{user_id}` | 查询指定用户的聊天历史 |
-| POST | `/clear` | 清空指定用户的聊天历史 |
-| POST | `/rag/chat` | RAG 知识库问答 |
+以下根据当前 `api.py` 及运行中 OpenAPI 核对；以 Swagger 展开的模型约束为准。示例会调用真实模型并保存独立测试历史，不是只读请求。
 
-接口请求示例：
+聊天请求 `ChatRequest`：
 
 ```json
 {
-  "user_id": "001",
-  "question": "Python 是什么？"
+  "user_id": "meridian-demo",
+  "question": "店铺退货期限是多少？",
+  "cache_mode": "context"
 }
 ```
 
-普通聊天接口的响应示例：
+`user_id`、`question` 必填，去除首尾空白；`question` 长度 1–4000。`cache_mode` 可选，为 `context` 或 `question`，默认 `context`；它在统一 Agent 中属于兼容参数，不表示启用了旧聊天答案缓存。当前消息表 user_id 列宽 50，而请求模型上限为 100，调用方应使用不超过 50 字符的短标识。
 
-```json
-{
-  "answer": "Python 是一种通用编程语言。"
-}
-```
+| 分类 | 方法 | 路径 | 用途与必要参数 |
+|---|---|---|---|
+| Agent | POST | `/agent/chat/stream` | 统一自动路由，JSON `ChatRequest`；返回文本流 |
+| 兼容聊天 | POST | `/chat` | 直接普通聊天，`ChatRequest`；返回 `answer` JSON |
+| 兼容聊天 | POST | `/chat/stream` | 直接普通聊天流，`ChatRequest` |
+| RAG | POST | `/rag/chat` | 直接 RAG，`ChatRequest`；返回 `answer` JSON |
+| RAG | POST | `/rag/chat/stream` | 直接 RAG 文本流，`ChatRequest` |
+| 历史 | GET | `/history/{user_id}` | 路径参数 `user_id`，返回 `messages`（role/content） |
+| 历史 | POST | `/clear` | JSON 必填 `user_id`；清空指定用户历史 |
+| 文档 | POST | `/documents/upload` | multipart 必填 `file`，UTF-8 TXT，≤1 MiB |
+| 商品 | GET | `/products` | 分页：`page≥1`，`page_size=1..100`，默认 1/20 |
+| 商品 | GET | `/products/{product_id}` | 商品详情及 SKU；路径整数 `product_id` |
+| 商品 | POST | `/products` | 创建商品，JSON 必填 `product_code`、`name`、非空 `skus`；成功 201 |
+| 商品 | PATCH | `/products/{product_id}` | JSON 至少更新 `name/category/description/is_active` 中一个字段 |
+| 商品 | DELETE | `/products/{product_id}` | 删除指定商品及其关联 SKU |
+| SKU | PATCH | `/products/skus/{sku_id}` | JSON 至少更新 `sku_code/color/size/price/stock/is_active` 中一个字段 |
+| SKU | DELETE | `/products/skus/{sku_id}` | 删除指定 SKU |
+| 健康 | GET | `/health` | 返回固定状态信息；不代表已执行数据库连通性检查 |
 
-以上内容仅为请求和响应格式示例，实际回答由模型生成。
+创建商品时每条 SKU 必填 `sku_code`、非负 `price`；`stock` 默认 0、`is_active` 默认 true，颜色/尺码可选；价格最多两位小数。商品请求模型禁止额外字段。SKU 实时库存查询目前通过 Agent 工具提供，没有单独的 `GET /inventory` 接口。
 
-## RAG 工作流程
+Swagger：`/docs`；OpenAPI：`/openapi.json`；ReDoc：`/redoc`。Nginx 的 `/healthz` 是单独的静态探针，不是 FastAPI 业务路由。
 
-RAG（Retrieval-Augmented Generation，检索增强生成）通过先检索相关资料，再将资料提供给大语言模型，帮助模型结合本地知识库回答问题。
+## 测试与验收
 
-本项目的主要流程如下：
+以下为 **2026-11-14 Docker 部署验收记录**，已核对项目外的 `global_store_docker_deployment_report.md` 及其测试/数据校验证据；不是本次文档整理重新执行的测试，也不是测试徽章。
 
-1. 加载 `knowledge_base/` 目录中的知识文档。
-2. 将文档切分为适当大小的文本块。
-3. 使用 Sentence Transformers 将文本块转换为向量表示。
-4. 将用户问题转换为向量。
-5. 计算问题向量与文本块向量之间的相似度。
-6. 检索相关文本块，并将其作为参考上下文。
-7. 将用户问题与检索结果交给大语言模型生成回答。
-8. 返回回答，并按照项目实际实现保存聊天记录。
+| 项目 | 已记录结果 |
+|---|---|
+| 自动化 | Python 3.12 容器：331 passed、0 failed、0 skipped；1 条依赖弃用警告 |
+| 真实功能 | 普通聊天、商品列表、商品详情、SKU 库存、退货、配送、税费，7/7 PASS |
+| 模型链路 | 7 次真实 Agent 请求，17 次 DeepSeek HTTP 请求（含分类/工具多轮），均 200 |
+| 容器 | 新 MySQL、Redis、FastAPI、Nginx 四个容器 healthy |
+| 数据迁移 | MySQL 全表/结构及新实例身份核对通过；必要 Redis 状态和布隆查询通过 |
+| 向量与重启 | Chroma 23 块，项目介绍 18、政策 5；512 维 FLOAT32、ID/文本/metadata/cosine 核对及重启验收通过 |
+| 历史与流 | 经 Nginx 持续接收 text/plain；14 条测试历史与回答一致，随后仅清理测试用户 |
 
-RAG 可以让模型参考本地资料回答问题，但回答的准确性仍然受到知识库内容、检索效果及模型生成能力的影响。
+上述商品、文档、历史数量是私有演示部署的验收快照，**不是 GitHub 克隆后自动拥有的数据**。原始 SQL、向量及聊天历史备份保存在仓库外，不应公开提交。
 
-## 自动化测试
+测试需使用隔离的数据库、Chroma 和 Redis，模型/接口测试与真实调用分开记录；不要在挂载现有业务卷的 app 中直接跑全套测试。配置好隔离环境后运行：
 
-项目使用 pytest 对数据库操作和 API 接口进行自动化测试。
-
-### 测试覆盖范围
-
-**数据库测试**
-
-- 消息保存与查询。
-- 聊天记录清空。
-- 不同用户的消息隔离。
-- 清空一个用户的记录不会影响其他用户。
-
-**API 测试**
-
-- 普通聊天请求与响应。
-- 历史记录查询。
-- 清空聊天记录。
-- 请求参数校验。
-- RAG 问答及聊天记录保存。
-- 流式聊天响应。
-- 大模型或 RAG 处理异常时的错误响应。
-
-**测试设计**
-
-- 使用 pytest fixture 准备测试环境。
-- 使用临时 SQLite 数据库隔离测试数据。
-- 使用 monkeypatch 模拟大模型及 RAG 函数，减少测试对真实外部服务的依赖。
-- 使用断言验证 HTTP 状态码、JSON 响应和数据库结果。
-
-### 运行测试
-
-运行全部测试：
-
-```bash
+```powershell
 python -m pytest -q
 ```
 
-仅运行 API 测试：
+隔离容器示例见 [部署文档的测试章节](docs/deployment.md#隔离运行自动化测试)。
 
-```bash
-python -m pytest -q tests/test_api.py
-```
+## 当前边界
 
-此前记录的本地测试结果：
+- 未实现 JWT 登录、账户系统或 RBAC；`user_id` 是调用方传入的历史分组标识，不是身份认证。前端当前固定使用 `001`，不代表已实现安全多租户。
+- 商品管理、文档上传和历史接口当前没有权限控制；CORS 允许所有来源。公网使用前仍需单独设计访问控制与安全配置。
+- 没有支付、订单管理、物流追踪、实际人工客服或真实商城交易闭环。政策、商品及 GLOBAL STORE 均用于演示。
+- 文档更新/删除有服务函数，但未公开 HTTP 路由；不支持 PDF 等非 TXT 上传，也没有文件目录自动增量同步。
+- RAG 仍受候选召回、资料覆盖及模型生成影响；不保证所有问题都有答案。一次请求只选择一个一级分支，不保证混合任务同时执行 Chat 和 RAG。
+- 流式响应是普通文本，不包含 SSE 事件、工具执行事件或可供前端消费的分类 confidence 字段。
+- 当前消息表不保存消息创建时间；页面时间标记不等同于服务端历史时间戳。
+- 已验证的是本机 Docker 部署；公网 DNS/TLS、外部流量、容量与并发压测未验收。
+- 代码、示例知识文档中仍保留历史名称 AI Chat Assistant；本次仅整理 MERIDIAN 产品文档，不修改前端品牌、提示词或知识库索引。
 
-```text
-Full test suite: 15 passed
-API tests:       11 passed
-```
+## Docker 部署入口
 
-以上为已有测试记录，本次 README 同步未重新运行 Python 测试。自动化测试使用模拟的大模型与 RAG 函数，不能据此认定真实 DeepSeek API 或真实 RAG 在线调用已经通过验证。重新运行测试后可获得当前代码对应的实际结果；自动化测试也不能保证覆盖所有潜在缺陷。
-
-### 前端检查记录与验证边界
-
-根据项目现有的[前端海洋工作台改造与学习报告](docs/前端海洋工作台改造与学习报告.md)，此前完成过以下检查：
-
-- **JavaScript 语法检查通过**：`index.html` 内联脚本与 `static/js/animation.js` 均通过 Node 语法检查。
-- **浏览器布局检查**：检查了 1920×1080 桌面视口与 390×844 手机竖屏视口；手机视口记录为无页面横向溢出。
-- **前端模拟响应测试**：通过隔离模拟响应检查普通流式文本块合并、Markdown 渲染、代码高亮、RAG JSON 回答渲染、清空后显示空状态，以及请求结束后输入框和按钮恢复。
-
-上述内容为此前检查记录。本次仅同步 README 并进行文档差异检查，未重新执行浏览器交互、真实 DeepSeek API 或真实 RAG 在线调用测试；模拟响应测试验证的是前端交互逻辑。
-
-## Docker 部署
-
-项目支持使用 Docker 将应用及运行依赖打包为镜像，并通过 Docker Compose 启动服务。
-
-请确保 Docker Desktop 已启动，并且当前终端能够正常使用 Docker 命令。
-
-### 1. 构建镜像
-
-在包含 `Dockerfile` 和 `docker-compose.yml` 的项目根目录执行：
-
-```bash
-docker compose build
-```
-
-### 2. 启动服务
-
-```bash
-docker compose up -d
-```
-
-### 3. 查看容器状态
-
-```bash
-docker compose ps
-```
-
-确认应用容器处于运行状态，并检查端口映射是否正常。
-
-### 4. 查看运行日志
-
-```bash
-docker compose logs --tail=50
-```
-
-需要持续观察日志时：
-
-```bash
-docker compose logs -f
-```
-
-按 `Ctrl+C` 可退出日志跟踪，不会自动停止后台容器。
-
-### 5. 验证服务
-
-浏览器访问：
-
-http://127.0.0.1:8000/docs
-
-通过 Swagger UI 测试 API 接口，确认服务能够正常响应。
-
-### 6. 停止服务
-
-```bash
-docker compose down
-```
-
-此命令会停止并移除 Compose 管理的容器和网络。持久化数据是否保留取决于项目的卷挂载及数据存储配置。
-
-> 注意：容器中的代码、依赖、环境变量和数据持久化行为取决于 `Dockerfile` 与 `docker-compose.yml` 的具体配置。修改代码后，如果需要将变更应用到容器，通常需要重新构建镜像并更新服务。
-
-## 数据存储
-
-项目使用 SQLite 保存聊天记录。数据库操作通过独立连接执行，并使用参数化 SQL 查询，降低 SQL 注入风险。
-
-普通聊天与 RAG 聊天的具体保存行为以 `ai.py`、`api.py` 和 `database.py` 中的实际实现为准。
-
-本地数据库文件 `chat.db` 不应直接提交到公开仓库。测试应优先使用独立的临时数据库，避免测试数据污染真实聊天记录。
-
-## 安全说明
-
-- 将 API Key 等敏感信息放在环境变量中，不要硬编码在源码中。
-- 将 `.env`、`chat.db`、虚拟环境及测试缓存加入 `.gitignore` 或 `.dockerignore` 的适当规则中。
-- 确认公开仓库中没有真实密钥、个人数据或其他敏感信息。
-- 生产环境应限制 CORS 允许的来源，并根据实际需求配置身份认证、访问控制和请求频率限制。
-- 当前项目主要用于学习、开发和作品展示；正式部署到公网前，还应完善鉴权、日志、监控及数据安全措施。
-
-## 项目总结
-
-本项目覆盖了一个 AI 应用从前端交互到后端服务、从数据库持久化到 RAG 检索问答，以及从自动化测试到 Docker 容器化部署的完整开发流程。
-
-通过该项目实践了：
-
-- FastAPI 接口设计与参数校验。
-- 大语言模型 API 集成及流式响应。
-- SQLite 数据持久化与事务管理。
-- RAG 检索增强生成的基本实现。
-- 原生前端的海洋视频背景、毛玻璃视觉、响应式布局与 GSAP 动画。
-- Markdown 安全渲染、流式文本解码与请求状态管理。
-- pytest 自动化测试与异常场景验证。
-- Git/GitHub 版本管理。
-- Docker 镜像构建与容器部署。
-
-项目地址：[GitHub - AI-Chat-Assistant](https://github.com/c18124/AI-Chat-Assistant)
+请阅读 [docs/deployment.md](docs/deployment.md)。文档区分新建空环境、现有数据迁移和当前已验收部署，说明模型缓存、持久化、备份恢复与故障排查。

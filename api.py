@@ -7,6 +7,7 @@ from pydantic import (
     ConfigDict
 )
 from database import (
+    SessionLocal,
     get_db,
     clear_messages,
     get_messages,
@@ -14,7 +15,10 @@ from database import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from rag import answer_question
+from rag import (
+    answer_question,
+    stream_answer_question
+)
 import logging
 from fastapi import FastAPI, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
@@ -47,6 +51,9 @@ from product_cache import (
     set_product_list_cache,
     invalidate_product_cache
 )
+
+
+from agent_service import agent_chat_stream as dispatch_agent_stream
 
 logging.basicConfig(
     level=logging.INFO,
@@ -460,6 +467,167 @@ def rag_chat_api(
             detail="知识库问答处理失败，请稍后重试"
         ) from exc
 
+
+
+
+# RAG 流式输出与聊天记录保存
+def rag_chat_stream_generator(
+    user_id: str,
+    question: str
+):
+
+    # 1. 创建 RAG 流式生成器
+    rag_generator = stream_answer_question(question)
+
+    # 2. 保存完整回答的缓冲区
+    answer_parts = []
+
+    # 3. 数据库会话
+    db = None
+
+    # 4. 是否成功保存
+    saved = False
+
+    try:
+
+        # 5. 逐段获取 RAG 回答
+        for content in rag_generator:
+
+            if not isinstance(content, str):
+                raise TypeError("RAG 流式内容必须是字符串")
+
+            if content:
+
+                answer_parts.append(content)
+
+                # 6. 实时发送给前端
+                yield content
+
+        # 7. 模型完整生成后，合并回答
+        answer = "".join(answer_parts)
+
+        if not answer.strip():
+            raise RuntimeError("RAG 没有生成有效回答")
+
+        # 8. 创建数据库会话
+        db = SessionLocal()
+
+        # 9. 一次性保存完整对话
+        save_conversation(
+            db,
+            user_id,
+            question,
+            answer
+        )
+
+        saved = True
+
+        logger.info(
+            "RAG 流式回答完成，用户=%s，回答长度=%s",
+            user_id,
+            len(answer)
+        )
+
+    except GeneratorExit:
+
+        # 10. 用户中途断开连接
+        logger.info(
+            "RAG 流式连接中断，用户=%s",
+            user_id
+        )
+
+        raise
+
+    except Exception:
+
+        logger.exception(
+            "RAG 流式生成或保存失败，用户=%s",
+            user_id
+        )
+
+        raise
+
+    finally:
+
+        # 11. 关闭底层 RAG 生成器
+        close_generator = getattr(
+            rag_generator,
+            "close",
+            None
+        )
+
+        if callable(close_generator):
+
+            try:
+                close_generator()
+
+            except Exception:
+                logger.exception("RAG 生成器关闭失败")
+
+        # 12. 数据库事务清理
+        if db is not None:
+
+            try:
+
+                if not saved:
+                    db.rollback()
+
+            finally:
+                db.close()
+
+
+# RAG 流式问答接口
+@app.post("/rag/chat/stream")
+def rag_chat_stream_api(
+    request: ChatRequest
+):
+
+    logger.info("RAG 流式问答请求开始处理")
+
+    return StreamingResponse(
+        rag_chat_stream_generator(
+            request.user_id,
+            request.question
+        ),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+
+
+# Agent 统一流式问答接口    #############################
+@app.post("/agent/chat/stream")
+def agent_chat_stream_api(
+    request: ChatRequest
+):
+
+    logger.info(
+        "Agent 统一问答请求开始处理"
+    )
+
+    return StreamingResponse(
+        dispatch_agent_stream(
+            user_id=request.user_id,
+            question=request.question,
+            cache_mode=request.cache_mode,
+
+            # 复用现有 RAG 流式生成器
+            rag_stream_factory=rag_chat_stream_generator
+        ),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+
+#######################################################################################
 
 
 # 文档上传接口

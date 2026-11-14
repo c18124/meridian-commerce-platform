@@ -1,20 +1,90 @@
 services:
-  app:
-    build: .
-    container_name: ai-chat-assistant
+  mysql:
+    image: mysql:8.0
     restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL_DOCKER}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Use a private deployment env file}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_chat}
+      MYSQL_USER: ${MYSQL_USER:-global_store}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Use a private deployment env file}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin -h 127.0.0.1 -u root ping --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  redis:
+    image: redis:7.4
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-global-store}-app:local
+    restart: unless-stopped
+    init: true
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER:?Use the new MySQL credentials}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Set in the private deployment env file}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_DB: "0"
+      REDIS_PASSWORD: ""
+      HF_HOME: /models
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      GLOBAL_STORE_DOCKER_TARGET: "1"
     volumes:
-      - ./chat.db:/app/chat.db
-      - hf_cache:/root/.cache/huggingface
+      - chroma_data:/app/chroma_data
+      - type: bind
+        source: ${HF_CACHE_DIR:?Set the existing Hugging Face cache directory}
+        target: /models
+        read_only: true
+    expose: ["8000"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=5).close()"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 40s
+
+  web:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.nginx
+    image: ${COMPOSE_PROJECT_NAME:-global-store}-web:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8080}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
 volumes:
-  hf_cache:
+  mysql_data:
+  redis_data:
+  chroma_data:

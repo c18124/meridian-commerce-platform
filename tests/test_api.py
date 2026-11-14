@@ -669,3 +669,128 @@ def test_document_upload_rejects_non_txt(
     assert response.json()["detail"] == (
         "目前仅支持 .txt 文件"
     )
+
+
+
+
+# ==================================================
+# Agent 统一接口测试
+# ==================================================
+
+
+def test_agent_chat_stream_returns_response(monkeypatch):
+
+    # 1. 记录 Agent 调度器收到的参数
+    captured = {}
+
+    # 2. 模拟 Agent 流式调度器
+    def fake_dispatch_agent_stream(
+        user_id,
+        question,
+        cache_mode,
+        rag_stream_factory
+    ):
+
+        captured["user_id"] = user_id
+        captured["question"] = question
+        captured["cache_mode"] = cache_mode
+        captured["rag_stream_factory"] = rag_stream_factory
+
+        yield "Agent "
+        yield "回答成功"
+
+    # 3. 替换真实 Agent 调度器
+    monkeypatch.setattr(
+        api,
+        "dispatch_agent_stream",
+        fake_dispatch_agent_stream
+    )
+
+    # 4. 发送 HTTP 请求
+    response = client.post(
+        "/agent/chat/stream",
+        json={
+            "user_id": "agent_api_test",
+            "question": "你好",
+            "cache_mode": "context"
+        }
+    )
+
+    # 5. 验证 HTTP 响应
+    assert response.status_code == 200
+
+    assert response.text == "Agent 回答成功"
+
+    assert response.headers[
+        "content-type"
+    ].startswith("text/plain")
+
+    assert response.headers[
+        "cache-control"
+    ] == "no-cache"
+
+    assert response.headers[
+        "x-accel-buffering"
+    ] == "no"
+
+    # 6. 验证调度器收到正确参数
+    assert captured["user_id"] == "agent_api_test"
+
+    assert captured["question"] == "你好"
+
+    assert captured["cache_mode"] == "context"
+
+    # 7. 验证 RAG 流式生成器正确传入
+    assert captured["rag_stream_factory"] is (
+        api.rag_chat_stream_generator
+    )
+
+
+def test_agent_chat_stream_rejects_empty_question(monkeypatch):
+
+    # 1. 记录调度器是否被调用
+    called = False
+
+    def fake_dispatch_agent_stream(*args, **kwargs):
+
+        nonlocal called
+
+        called = True
+
+        yield "不应该执行"
+
+    monkeypatch.setattr(
+        api,
+        "dispatch_agent_stream",
+        fake_dispatch_agent_stream
+    )
+
+    # 2. 发送空白问题
+    response = client.post(
+        "/agent/chat/stream",
+        json={
+            "user_id": "agent_api_test",
+            "question": "   ",
+            "cache_mode": "context"
+        }
+    )
+
+    # 3. 验证参数校验失败
+    assert response.status_code == 422
+
+    # 4. Agent 不应该执行
+    assert called is False
+
+
+def test_agent_chat_stream_rejects_missing_fields():
+
+    # 1. 缺少 question
+    response = client.post(
+        "/agent/chat/stream",
+        json={
+            "user_id": "agent_api_test"
+        }
+    )
+
+    # 2. 验证请求参数错误
+    assert response.status_code == 422

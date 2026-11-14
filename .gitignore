@@ -30,3 +30,24 @@ _temp_*.py
 # 本地性能及手动验证脚本
 benchmark_*.py
 verify_*.py
+
+# 发布保护：本地环境、测试覆盖率与模型缓存
+*.py[cod]
+.venv/
+venv/
+env/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# 私有数据库导出、运行时附属文件和系统缓存
+*.sql
+*.dump
+*.rdb
+*.aof
+*.db-*
+*.sqlite-*
+*.sqlite3-*
+.DS_Store
+Thumbs.db

@@ -1,39 +1,37 @@
 项目名称：AI Chat Assistant
 
-项目目标：开发一个基于大语言模型的网页聊天助手，支持用户提问、AI 流式回答和历史聊天记录查询。
+项目定位：基于 DeepSeek 大语言模型的跨境电商智能导购与知识库客服演示项目，结合普通问答、商品与 SKU 库存查询、演示店铺退换货和物流清关政策问答。
 
-后端技术：Python、FastAPI、Pydantic。
+前端技术与功能：使用原生 HTML、CSS、JavaScript，提供海洋视频背景与毛玻璃聊天界面。使用 marked、DOMPurify、highlight.js 实现 Markdown 渲染、HTML 清理和代码高亮，保留时间戳、自动滚动、Enter 发送、Loading 提示、历史查询和清空记录。
 
-前端技术：HTML、CSS、JavaScript。
+后端架构：使用 Python、FastAPI、Pydantic 和 Uvicorn，按 API、Agent 调度、商品业务、文档管理、向量检索与缓存服务分层。接口通过 Pydantic 校验请求参数，通过 SQLAlchemy 会话访问数据库，并记录运行日志和处理异常。
 
-大模型接口：通过 OpenAI 兼容接口调用 DeepSeek API。
+业务数据库：当前配置使用 MySQL、SQLAlchemy 2.x ORM 和 PyMySQL。messages 表保存用户问题与 AI 回答，documents 表保存文档原文及内容哈希，products 和 product_skus 表保存商品、规格、价格与库存。后端提供商品和 SKU 维护接口。
 
-数据库：SQLite，用于保存用户问题和 AI 回答。
+大模型与流式输出：通过 OpenAI 兼容 SDK 调用 DeepSeek API，当前模型为 deepseek-chat。支持普通完整回答和流式生成；前端统一提交到 POST /agent/chat/stream，使用 fetch、ReadableStream 和 getReader() 读取 text/plain 文本流，当前协议不是 SSE。
 
-主要功能：
-1. 支持用户发送问题。
-2. 支持 AI 流式输出回答。
-3. 支持 Markdown 渲染和代码高亮。
-4. 支持聊天历史查询。
-5. 支持清空聊天记录。
-6. 支持自定义背景和聊天界面样式。
+Agent 第一级决策：intent_router.py 结合当前问题与最近最多 8 条历史消息，识别 chat 或 rag。低置信度、非法结果或分类异常时回退到 chat；agent_service.py 将 rag 请求交给原有 RAG 流式生成器，将 chat 请求交给 Function Calling Agent。
 
-后续计划：增加 RAG 知识库问答能力，使 AI 能够根据用户提供的文档回答问题。
+Agent 第二级决策：Chat 分支由 DeepSeek 通过 Function Calling 自动判断是否需要商品工具。普通知识问题可直接回答；工具请求经过白名单和参数检查，执行 Python 函数后将结果交回模型组织回答，并限制工具调用轮数和总次数。
 
+商品查询工具：list_products 支持分页查询商品列表；get_product_detail 按商品 ID 查询详情及关联 SKU；get_sku_inventory 按 SKU 编号查询当前库存。三个工具均为只读工具，直接查询 MySQL 业务数据。
 
-常见问题与答案
+Redis 缓存：商品列表和详情 API 使用 Redis JSON 缓存，商品或 SKU 变更后通过缓存版本号使旧缓存失效，缓存 TTL 带随机浮动。传统 /chat 和 /chat/stream 支持 context、question 两种答案缓存模式；Agent Function Calling 分支当前不使用普通聊天答案缓存。
 
-问题：我的聊天记录使用什么数据库保存？
-答案：项目使用 SQLite 数据库保存用户问题和 AI 回答。
+Redis 并发与去重：传统流式聊天使用分布式锁减少相同缓存键的重复生成，包含 Lua 校验锁持有者、锁释放和后台自动续期。文档上传使用 SHA-256、Redis Bitmap 布隆过滤器以及 MySQL 精确查询和唯一约束检查重复文档。当前未实现请求限流。
 
-问题：这个项目使用什么后端技术？
-答案：后端使用 Python、FastAPI 和 Pydantic。
+RAG 文档上传：POST /documents/upload 接受 UTF-8 TXT 文件，大小上限为 1 MB。文档服务保存原文到 MySQL，调用 split_text() 按段落组织文本块，默认块长 200 字符，超长段落使用 30 字符重叠，再生成向量并写入 Chroma。
 
-问题：这个项目使用什么大模型接口？
-答案：通过 OpenAI 兼容接口调用 DeepSeek API。
+Embedding 与向量库：Sentence Transformers 使用 BAAI/bge-small-zh-v1.5 生成归一化向量。Chroma PersistentClient 保存向量、文本及 document_id、filename、chunk_index 元数据，持久化目录为 chroma_data，Collection 为 rag_chunks，距离度量为 cosine。
 
-问题：这个项目支持哪些聊天功能？
-答案：支持用户发送问题、AI 流式输出、Markdown 渲染、代码高亮、聊天历史查询、清空聊天记录，以及自定义背景和聊天界面样式。
+RAG 检索与回答：问题使用相同 Embedding 服务向量化，Chroma HNSW 先召回最多 5 个候选，BAAI/bge-reranker-base CrossEncoder 重排后保留最多 3 块。当前没有相关性分数阈值。DeepSeek 根据参考资料生成回答，资料不足时如实说明，不编造答案。
 
-问题：这个项目计划增加什么能力？
-答案：计划增加 RAG 知识库问答能力，使 AI 能够根据用户提供的文档回答问题。
+知识库索引维护：本地 knowledge_base 目录中的文件不会自动同步到在线 Chroma 索引，需要显式执行文档上传入库流程。文档服务层已有更新、删除及异常补偿逻辑；修改原文后需同步索引。现有政策初始化脚本只处理 knowledge_base/policies 目录。
+
+身份与接口边界：当前未实现 JWT 登录鉴权和用户权限管理，user_id 用于区分聊天记录。历史查询使用 GET /history/{user_id}，清空记录使用 POST /clear；原有 /chat、/chat/stream、/rag/chat、/rag/chat/stream 接口仍保留。
+
+自动化测试：tests 目录提供 pytest 测试，覆盖请求校验、聊天记录、缓存与锁、商品业务、文档上传及补偿、Chroma 检索、RAG 流式生成、意图识别和 Agent 工具调用。部分测试使用模拟模型和临时数据库；真实模型调用及部署效果需要单独验收。
+
+运行与部署：本地前端当前连接 http://127.0.0.1:8001。项目提供 Dockerfile 和 Docker Compose 应用配置，容器通过 Uvicorn 在 8000 端口运行。现有 Compose 只声明应用服务，未定义 MySQL、Redis 服务或 Chroma 数据挂载；当前版本完整容器联调和生产部署状态未确认。
+
+AI Chat Assistant技术总览：跨境电商导购与知识库客服。FastAPI后端，MySQL业务库，Redis缓存与并发锁。Agent先识别chat/rag，chat通过Function Calling查商品；RAG使用BAAI/bge-small-zh-v1.5 Embedding、Chroma向量检索、BAAI/bge-reranker-base重排，由DeepSeek流式回答。
